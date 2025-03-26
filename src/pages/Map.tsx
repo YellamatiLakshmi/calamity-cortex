@@ -3,7 +3,7 @@ import React from 'react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import DisasterMap from '@/components/DisasterMap';
-import { Filter, Map as MapIcon, Layers, Search, AlertTriangle, CloudRain, Wind, Flame } from 'lucide-react';
+import { Filter, MapIcon, Layers, Search, AlertTriangle, CloudRain, Wind, Flame } from 'lucide-react';
 
 const MapPage = () => {
   return (

@@ -6,7 +6,7 @@ import DisasterMap from '@/components/DisasterMap';
 import ChatInterface from '@/components/ChatInterface';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import { ArrowRight, AlertTriangle, Shield, Radio, BarChart2, CloudLightning } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Shield, Radio, BarChart2, CloudLightning, MapIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Index = () => {
@@ -82,7 +82,7 @@ const Index = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <div className="animate-fade-in">
               <div className="inline-flex items-center justify-center p-1 px-3 mb-4 border rounded-full bg-muted/30 text-sm font-medium text-muted-foreground">
-                <Map className="h-3.5 w-3.5 mr-2 text-disaster-blue" />
+                <MapIcon className="h-3.5 w-3.5 mr-2 text-disaster-blue" />
                 <span>Interactive visualization</span>
               </div>
               
@@ -215,7 +215,7 @@ const Index = () => {
               description: 'Crowdsourced disaster reporting with AI verification ensures accurate, real-time situation awareness from those on the ground.',
             },
             {
-              icon: <Map className="h-6 w-6 text-disaster-red" />,
+              icon: <MapIcon className="h-6 w-6 text-disaster-red" />,
               title: 'Resource Allocation',
               description: 'Optimize the distribution of emergency resources like food, water, and medical supplies to maximize impact and save lives.',
             },
