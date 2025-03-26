@@ -12,6 +12,7 @@ interface DisasterCardProps {
   severity: 'low' | 'medium' | 'high' | 'critical';
   time: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const DisasterCard: React.FC<DisasterCardProps> = ({
@@ -21,6 +22,7 @@ const DisasterCard: React.FC<DisasterCardProps> = ({
   severity,
   time,
   className,
+  style,
 }) => {
   const getIcon = () => {
     switch (type) {
@@ -56,6 +58,7 @@ const DisasterCard: React.FC<DisasterCardProps> = ({
         'relative group p-5 rounded-2xl border bg-card transition-all duration-300 hover:shadow-lg overflow-hidden',
         className
       )}
+      style={style}
     >
       <div className="absolute top-0 left-0 w-1 h-full" style={{
         backgroundColor: type === 'wildfire' ? '#e11d48' : 
