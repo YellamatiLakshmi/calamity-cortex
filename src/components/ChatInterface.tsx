@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, AlertTriangle, Clock, Map, Radio } from 'lucide-react';
+import { fetchDisasterData } from '@/services/disasterDataService';
+import { toast } from "sonner";
 
 type MessageType = {
   id: string;
@@ -20,8 +22,17 @@ const ChatInterface = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inputValue.trim()) return;
@@ -37,29 +48,97 @@ const ChatInterface = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     
-    // Simulate bot typing
+    // Show typing indicator
     setIsTyping(true);
     
-    // Simulate bot response (would be replaced with actual API call)
-    setTimeout(() => {
-      setIsTyping(false);
+    try {
+      // Prepare context for the AI
+      const conversationContext = messages
+        .slice(-5)
+        .map(msg => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n');
+
+      // Create prompt for Gemini
+      const prompt = `
+        You are DisasterScope AI, a specialized disaster response and emergency assistant.
+        
+        Your capabilities:
+        - Provide real-time disaster information and updates
+        - Offer emergency preparedness advice
+        - Help users with evacuation planning
+        - Give specific safety instructions for different disaster types
+        - Connect users with emergency services
+        
+        Current conversation:
+        ${conversationContext}
+        
+        User: ${userMessage.content}
+        
+        Respond in a helpful, informative way. If this is an emergency situation, prioritize immediate safety advice. If you don't know something specific, be honest but try to provide general guidance that could help.
+      `;
       
-      const botResponses = [
-        "I'm detecting you're in the San Francisco area. There's a wildfire alert 20 miles north of your location. Please stay indoors if possible.",
-        "The nearest emergency shelter is at Golden Gate Park Community Center. Would you like directions?",
-        "I recommend preparing an emergency kit with water, non-perishable food, medications, and important documents.",
-        "I've sent an SMS alert to your emergency contacts. Stay safe and keep monitoring this chat for updates.",
-      ];
+      // Call Gemini API
+      const response = await fetchDisasterData(
+        'gemini',
+        'generateContent',
+        {
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        }
+      );
       
-      const botMessage: MessageType = {
+      // Handle API response
+      if (response.data && response.data.candidates && response.data.candidates[0]) {
+        const content = response.data.candidates[0].content.parts[0].text;
+        
+        // Add bot message
+        const botMessage: MessageType = {
+          id: (Date.now() + 1).toString(),
+          content: content,
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        throw new Error('Invalid response from AI');
+      }
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      toast.error('Failed to get AI response. Please try again.');
+      
+      // Add fallback bot message
+      const fallbackMessage: MessageType = {
         id: (Date.now() + 1).toString(),
-        content: botResponses[Math.floor(Math.random() * botResponses.length)],
+        content: "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again or contact emergency services directly if you're in an urgent situation.",
         sender: 'bot',
         timestamp: new Date(),
       };
       
-      setMessages((prev) => [...prev, botMessage]);
-    }, 1500);
+      setMessages((prev) => [...prev, fallbackMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'report':
+        setInputValue('I need to report an emergency in my area.');
+        break;
+      case 'location':
+        setInputValue('My current location is [ENTER YOUR LOCATION].');
+        break;
+      case 'updates':
+        setInputValue('What are the latest disaster updates in my area?');
+        break;
+      case 'authorities':
+        setInputValue('How can I contact local emergency authorities?');
+        break;
+    }
   };
 
   return (
@@ -128,24 +207,38 @@ const ChatInterface = () => {
             </div>
           </div>
         )}
+        
+        <div ref={messagesEndRef} />
       </div>
       
       {/* Quick action buttons */}
       <div className="px-4 py-2 border-t bg-muted/10">
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-none">
-          <button className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap">
+          <button 
+            className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap"
+            onClick={() => handleQuickAction('report')}
+          >
             <AlertTriangle className="h-3 w-3 mr-1 text-disaster-red" />
             Report emergency
           </button>
-          <button className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap">
+          <button 
+            className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap"
+            onClick={() => handleQuickAction('location')}
+          >
             <Map className="h-3 w-3 mr-1" />
             Share location
           </button>
-          <button className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap">
+          <button 
+            className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap"
+            onClick={() => handleQuickAction('updates')}
+          >
             <Clock className="h-3 w-3 mr-1" />
             Latest updates
           </button>
-          <button className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap">
+          <button
+            className="px-3 py-1.5 flex items-center text-xs font-medium rounded-full bg-muted/50 hover:bg-muted transition whitespace-nowrap"
+            onClick={() => handleQuickAction('authorities')}
+          >
             <Radio className="h-3 w-3 mr-1" />
             Contact authorities
           </button>
@@ -163,7 +256,7 @@ const ChatInterface = () => {
         />
         <button
           type="submit"
-          disabled={!inputValue.trim()}
+          disabled={!inputValue.trim() || isTyping}
           className="p-2.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="h-5 w-5" />
