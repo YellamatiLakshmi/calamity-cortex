@@ -1,9 +1,57 @@
 
 import { toast } from "sonner";
 
+// Generic API response interface
 interface ApiResponse<T> {
   data?: T;
   error?: string;
+}
+
+// Gemini API response interfaces
+interface GeminiCandidate {
+  content: {
+    parts: Array<{
+      text: string;
+    }>;
+  };
+}
+
+interface GeminiResponse {
+  candidates: GeminiCandidate[];
+}
+
+// Weather API response interfaces
+interface WeatherAlert {
+  event?: string;
+  urgency?: string;
+  severity?: string;
+  start: number;
+}
+
+interface WeatherResponse {
+  alerts?: WeatherAlert[];
+  current?: {
+    temp: number;
+    humidity: number;
+    wind_speed: number;
+  };
+}
+
+// News API response interface
+interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+}
+
+interface NewsResponse {
+  articles: NewsArticle[];
+}
+
+// NASA API response interface
+interface NasaResponse {
+  // Define NASA response structure as needed
 }
 
 export const fetchDisasterData = async <T>(
@@ -39,7 +87,7 @@ export const fetchDisasterData = async <T>(
 };
 
 export const fetchWeatherAlert = async (lat: number, lon: number) => {
-  return fetchDisasterData(
+  return fetchDisasterData<WeatherResponse>(
     'weather',
     'onecall',
     { lat, lon, exclude: 'minutely,hourly', units: 'metric' }
@@ -47,7 +95,7 @@ export const fetchWeatherAlert = async (lat: number, lon: number) => {
 };
 
 export const fetchFloodData = async (location: string) => {
-  return fetchDisasterData(
+  return fetchDisasterData<NasaResponse>(
     'nasa',
     'earth/assets',
     { lon: -95.7129, lat: 37.0902, dim: 0.025 }
@@ -55,7 +103,7 @@ export const fetchFloodData = async (location: string) => {
 };
 
 export const fetchDisasterNews = async (query: string = 'natural disaster') => {
-  return fetchDisasterData(
+  return fetchDisasterData<NewsResponse>(
     'news',
     'everything',
     { q: query, sortBy: 'publishedAt', pageSize: 10 }
@@ -82,7 +130,7 @@ export const analyzeDisasterRisk = async (location: string, data: any) => {
     }
   `;
 
-  return fetchDisasterData<any>(
+  return fetchDisasterData<GeminiResponse>(
     'gemini',
     'generateContent',
     {

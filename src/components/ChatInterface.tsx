@@ -11,6 +11,19 @@ type MessageType = {
   timestamp: Date;
 };
 
+// Define Gemini API response interface
+interface GeminiCandidate {
+  content: {
+    parts: Array<{
+      text: string;
+    }>;
+  };
+}
+
+interface GeminiResponse {
+  candidates: GeminiCandidate[];
+}
+
 const ChatInterface = () => {
   const [messages, setMessages] = useState<MessageType[]>([
     {
@@ -78,7 +91,7 @@ const ChatInterface = () => {
       `;
       
       // Call Gemini API
-      const response = await fetchDisasterData(
+      const response = await fetchDisasterData<GeminiResponse>(
         'gemini',
         'generateContent',
         {
@@ -90,8 +103,8 @@ const ChatInterface = () => {
         }
       );
       
-      // Handle API response
-      if (response.data && response.data.candidates && response.data.candidates[0]) {
+      // Handle API response with proper type checking
+      if (response.data && 'candidates' in response.data && response.data.candidates?.[0]) {
         const content = response.data.candidates[0].content.parts[0].text;
         
         // Add bot message

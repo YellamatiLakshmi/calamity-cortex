@@ -9,6 +9,31 @@ import { Input } from '@/components/ui/input';
 import { toast } from "sonner";
 import { fetchWeatherAlert, fetchDisasterNews, analyzeDisasterRisk, getRiskColor } from '@/services/disasterDataService';
 
+// Define News API response interface
+interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+}
+
+interface NewsResponse {
+  articles: NewsArticle[];
+}
+
+// Define Gemini API response interface
+interface GeminiCandidate {
+  content: {
+    parts: Array<{
+      text: string;
+    }>;
+  };
+}
+
+interface GeminiResponse {
+  candidates: GeminiCandidate[];
+}
+
 interface DisasterRisk {
   riskLevel: string;
   disasterTypes: Array<{
@@ -38,7 +63,7 @@ const PredictionPage = () => {
         
         // Analyze disaster risk using Gemini
         const riskResponse = await analyzeDisasterRisk(location, weatherResponse.data);
-        if (riskResponse.data && riskResponse.data.candidates && riskResponse.data.candidates[0]) {
+        if (riskResponse.data && 'candidates' in riskResponse.data && riskResponse.data.candidates?.[0]) {
           try {
             // Parse the JSON response from Gemini
             const content = riskResponse.data.candidates[0].content.parts[0].text;
@@ -61,7 +86,7 @@ const PredictionPage = () => {
 
       // Fetch news about disasters in the area
       const newsResponse = await fetchDisasterNews(location + " disaster");
-      if (newsResponse.data && newsResponse.data.articles) {
+      if (newsResponse.data && 'articles' in newsResponse.data) {
         setNewsData(newsResponse.data.articles.slice(0, 3));
       }
     } catch (error) {

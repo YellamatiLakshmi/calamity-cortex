@@ -1,8 +1,31 @@
-
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { fetchDisasterNews, fetchWeatherAlert } from '@/services/disasterDataService';
+
+// Define Weather API response interface
+interface WeatherAlert {
+  event?: string;
+  urgency?: string;
+  severity?: string;
+  start: number;
+}
+
+interface WeatherResponse {
+  alerts?: WeatherAlert[];
+}
+
+// Define News API response interface
+interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+}
+
+interface NewsResponse {
+  articles: NewsArticle[];
+}
 
 interface DisasterEvent {
   id: string;
@@ -44,7 +67,7 @@ const DisasterMap = () => {
             const alerts = weatherResponse.data.alerts || [];
             
             // Process weather alerts into disaster events
-            alerts.forEach((alert: any) => {
+            alerts.forEach((alert: WeatherAlert) => {
               let type: DisasterEvent['type'] = 'other';
               let severity: DisasterEvent['severity'] = 'medium';
               
@@ -116,11 +139,11 @@ const DisasterMap = () => {
         
         // Add news-based disasters
         const newsResponse = await fetchDisasterNews();
-        if (newsResponse.data && newsResponse.data.articles) {
+        if (newsResponse.data && 'articles' in newsResponse.data) {
           // Process first 5 news articles
           const articles = newsResponse.data.articles.slice(0, 5);
           
-          articles.forEach((article: any) => {
+          articles.forEach((article: NewsArticle) => {
             // Try to extract location from title or description
             const title = article.title || '';
             const description = article.description || '';
