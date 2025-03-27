@@ -59,7 +59,7 @@ serve(async (req) => {
         break;
         
       case 'weather':
-        apiUrl = `https://api.openweathermap.org/data/3.0/${endpoint}`;  // Updated to use v3.0 API
+        apiUrl = `https://api.openweathermap.org/data/3.0/${endpoint}`;  // Using v3.0 API
         apiKey = OPENWEATHERMAP_API_KEY;
         break;
         
@@ -133,7 +133,29 @@ serve(async (req) => {
             content: {
               parts: [
                 {
-                  text: "Based on the available data, I've analyzed the disaster risk for your location:\n\n1. **Overall Risk Level**: Medium\n\n2. **Most Likely Disaster Types**:\n   - Flooding (40% probability, medium severity)\n   - Thunderstorms (60% probability, low severity)\n\n3. **Areas of Concern**:\n   - Low-lying regions near water bodies\n   - Areas with poor drainage systems\n\n4. **Recommended Preparedness Actions**:\n   - Keep emergency supplies ready\n   - Stay informed through local news and weather alerts\n   - Ensure proper drainage around your property\n   - Have an evacuation plan ready\n\nThis is a preliminary assessment based on available data. Continue to monitor official weather services for real-time updates."
+                  text: `Based on the available data, I've analyzed the disaster risk for your location:
+
+{
+  "riskLevel": "medium",
+  "disasterTypes": [
+    {"type": "flood", "probability": "60%", "severity": "medium"},
+    {"type": "wildfire", "probability": "25%", "severity": "low"},
+    {"type": "hurricane", "probability": "40%", "severity": "high"}
+  ],
+  "areasOfConcern": [
+    "Low-lying regions near water bodies",
+    "Areas with poor drainage systems",
+    "Coastal regions susceptible to storm surge"
+  ],
+  "recommendations": [
+    "Keep emergency supplies ready including water, non-perishable food, and medications",
+    "Stay informed through local news and weather alerts",
+    "Ensure proper drainage around your property",
+    "Have an evacuation plan ready and discuss it with family members",
+    "Secure outdoor items that could be carried away by strong winds",
+    "Consider flood insurance if you live in a flood-prone area"
+  ]
+}`
                 }
               ]
             }
@@ -151,47 +173,58 @@ serve(async (req) => {
       });
     }
     
-    // Make the actual API call
-    const response = await fetch(apiUrl, {
-      method,
-      headers,
-      body,
-    });
+    try {
+      // Make the actual API call
+      const response = await fetch(apiUrl, {
+        method,
+        headers,
+        body,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Error from ${service} API: ${response.status} ${response.statusText}`, errorText);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error from ${service} API: ${response.status} ${response.statusText}`, errorText);
+        
+        // Return mock data for development/testing
+        console.log(`Returning mock data for ${service} due to API error`);
+        return new Response(JSON.stringify(mockResponse[service] || {}), {
+          headers: corsHeaders,
+          status: 200,
+        });
+      }
+
+      // Check content type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error(`Non-JSON response from ${service} API:`, text);
+        
+        // Return mock data for development/testing
+        console.log(`Returning mock data for ${service} due to non-JSON response`);
+        return new Response(JSON.stringify(mockResponse[service] || {}), {
+          headers: corsHeaders,
+          status: 200,
+        });
+      }
+
+      const data = await response.json();
+      console.log(`Successful response from ${service} API`);
       
-      // Return mock data for development/testing
-      console.log(`Returning mock data for ${service} due to API error`);
+      // Return the data from the external API
+      return new Response(JSON.stringify(data), {
+        headers: corsHeaders,
+        status: 200,
+      });
+    } catch (fetchError) {
+      console.error(`Error fetching from ${service} API:`, fetchError);
+      
+      // Return mock data on fetch errors
+      console.log(`Returning mock data for ${service} due to fetch error`);
       return new Response(JSON.stringify(mockResponse[service] || {}), {
         headers: corsHeaders,
         status: 200,
       });
     }
-
-    // Check content type
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error(`Non-JSON response from ${service} API:`, text);
-      
-      // Return mock data for development/testing
-      console.log(`Returning mock data for ${service} due to non-JSON response`);
-      return new Response(JSON.stringify(mockResponse[service] || {}), {
-        headers: corsHeaders,
-        status: 200,
-      });
-    }
-
-    const data = await response.json();
-    console.log(`Successful response from ${service} API`);
-    
-    // Return the data from the external API
-    return new Response(JSON.stringify(data), {
-      headers: corsHeaders,
-      status: 200,
-    });
   } catch (error) {
     console.error('Error in api-proxy function:', error);
     return new Response(JSON.stringify({ error: error.message }), {

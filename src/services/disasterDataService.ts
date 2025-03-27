@@ -54,6 +54,18 @@ interface NasaResponse {
   // Define NASA response structure as needed
 }
 
+// Define the DisasterRisk interface for Gemini AI response
+export interface DisasterRisk {
+  riskLevel: string;
+  disasterTypes: Array<{
+    type: string;
+    probability: string;
+    severity: string;
+  }>;
+  areasOfConcern: string[];
+  recommendations: string[];
+}
+
 // Mock data for fallback when APIs are unavailable
 const mockData = {
   weather: {
@@ -105,7 +117,29 @@ const mockData = {
         content: {
           parts: [
             {
-              text: "Based on the available data, I've analyzed the disaster risk for your location:\n\n1. **Overall Risk Level**: Medium\n\n2. **Most Likely Disaster Types**:\n   - Flooding (40% probability, medium severity)\n   - Thunderstorms (60% probability, low severity)\n\n3. **Areas of Concern**:\n   - Low-lying regions near water bodies\n   - Areas with poor drainage systems\n\n4. **Recommended Preparedness Actions**:\n   - Keep emergency supplies ready\n   - Stay informed through local news and weather alerts\n   - Ensure proper drainage around your property\n   - Have an evacuation plan ready\n\nThis is a preliminary assessment based on available data. Continue to monitor official weather services for real-time updates."
+              text: `Based on the available data, I've analyzed the disaster risk for your location:
+
+{
+  "riskLevel": "medium",
+  "disasterTypes": [
+    {"type": "flood", "probability": "60%", "severity": "medium"},
+    {"type": "wildfire", "probability": "25%", "severity": "low"},
+    {"type": "hurricane", "probability": "40%", "severity": "high"}
+  ],
+  "areasOfConcern": [
+    "Low-lying regions near water bodies",
+    "Areas with poor drainage systems",
+    "Coastal regions susceptible to storm surge"
+  ],
+  "recommendations": [
+    "Keep emergency supplies ready including water, non-perishable food, and medications",
+    "Stay informed through local news and weather alerts",
+    "Ensure proper drainage around your property",
+    "Have an evacuation plan ready and discuss it with family members",
+    "Secure outdoor items that could be carried away by strong winds",
+    "Consider flood insurance if you live in a flood-prone area"
+  ]
+}`
             }
           ]
         }

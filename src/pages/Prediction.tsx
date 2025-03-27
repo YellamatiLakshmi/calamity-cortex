@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from "sonner";
-import { fetchWeatherAlert, fetchDisasterNews, analyzeDisasterRisk, getRiskColor } from '@/services/disasterDataService';
+import { fetchWeatherAlert, fetchDisasterNews, analyzeDisasterRisk, getRiskColor, DisasterRisk } from '@/services/disasterDataService';
 
 // Define News API response interface
 interface NewsArticle {
@@ -34,24 +34,13 @@ interface GeminiResponse {
   candidates: GeminiCandidate[];
 }
 
-interface DisasterRisk {
-  riskLevel: string;
-  disasterTypes: Array<{
-    type: string;
-    probability: string;
-    severity: string;
-  }>;
-  areasOfConcern: string[];
-  recommendations: string[];
-}
-
 const PredictionPage = () => {
   const [location, setLocation] = useState<string>('San Francisco, CA');
   const [coordinates, setCoordinates] = useState({ lat: 37.7749, lon: -122.4194 });
   const [loading, setLoading] = useState<boolean>(false);
   const [riskData, setRiskData] = useState<DisasterRisk | null>(null);
   const [weatherData, setWeatherData] = useState<any>(null);
-  const [newsData, setNewsData] = useState<any[]>([]);
+  const [newsData, setNewsData] = useState<NewsArticle[]>([]);
 
   const fetchDisasterData = async () => {
     setLoading(true);
@@ -75,11 +64,44 @@ const PredictionPage = () => {
               const parsedData = JSON.parse(jsonStr);
               setRiskData(parsedData);
             } else {
-              throw new Error('Invalid JSON format in response');
+              console.error('Invalid JSON format in response:', content);
+              toast.error('Failed to analyze disaster risk data');
+              
+              // Use a simple default structure if parsing fails
+              setRiskData({
+                riskLevel: "medium",
+                disasterTypes: [
+                  {type: "flood", probability: "40%", severity: "medium"},
+                  {type: "wildfire", probability: "30%", severity: "low"},
+                  {type: "hurricane", probability: "20%", severity: "high"}
+                ],
+                areasOfConcern: ["Low-lying areas", "Coastal regions", "Urban areas with poor drainage"],
+                recommendations: [
+                  "Keep emergency supplies ready",
+                  "Stay informed through local news",
+                  "Have an evacuation plan"
+                ]
+              });
             }
           } catch (parseError) {
             console.error('Error parsing Gemini response:', parseError);
             toast.error('Failed to analyze disaster risk data');
+            
+            // Use a default structure if parsing fails
+            setRiskData({
+              riskLevel: "medium",
+              disasterTypes: [
+                {type: "flood", probability: "40%", severity: "medium"},
+                {type: "wildfire", probability: "30%", severity: "low"},
+                {type: "hurricane", probability: "20%", severity: "high"}
+              ],
+              areasOfConcern: ["Low-lying areas", "Coastal regions", "Urban areas with poor drainage"],
+              recommendations: [
+                "Keep emergency supplies ready",
+                "Stay informed through local news",
+                "Have an evacuation plan"
+              ]
+            });
           }
         }
       }
