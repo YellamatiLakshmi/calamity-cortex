@@ -104,7 +104,7 @@ const ChatInterface = () => {
       );
       
       // Handle API response with proper type checking
-      if (response.data && 'candidates' in response.data && response.data.candidates?.[0]) {
+      if (response.data && response.data.candidates && response.data.candidates.length > 0) {
         const content = response.data.candidates[0].content.parts[0].text;
         
         // Add bot message

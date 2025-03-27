@@ -60,6 +60,8 @@ export const fetchDisasterData = async <T>(
   params: Record<string, any> = {}
 ): Promise<ApiResponse<T>> => {
   try {
+    console.log(`Fetching ${service} data for endpoint ${endpoint}`, params);
+    
     const response = await fetch('/api/api-proxy', {
       method: 'POST',
       headers: {
@@ -73,11 +75,23 @@ export const fetchDisasterData = async <T>(
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to fetch data');
+      const errorText = await response.text();
+      console.error(`Error response from ${service}:`, errorText);
+      throw new Error(`HTTP error ${response.status}: ${errorText}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error(`Non-JSON response from ${service}:`, text);
+      throw new Error(`Expected JSON response but got ${contentType}`);
     }
 
     const data = await response.json();
+    
+    // Log successful response
+    console.log(`Successful ${service} data response:`, data);
+    
     return { data: data as T };
   } catch (error) {
     console.error(`Error fetching ${service} data:`, error);
@@ -86,7 +100,7 @@ export const fetchDisasterData = async <T>(
   }
 };
 
-export const fetchWeatherAlert = async (lat: number, lon: number) => {
+export const fetchWeatherAlert = async (lat: number, lon: number): Promise<ApiResponse<WeatherResponse>> => {
   return fetchDisasterData<WeatherResponse>(
     'weather',
     'onecall',
@@ -94,7 +108,7 @@ export const fetchWeatherAlert = async (lat: number, lon: number) => {
   );
 };
 
-export const fetchFloodData = async (location: string) => {
+export const fetchFloodData = async (location: string): Promise<ApiResponse<NasaResponse>> => {
   return fetchDisasterData<NasaResponse>(
     'nasa',
     'earth/assets',
@@ -102,7 +116,7 @@ export const fetchFloodData = async (location: string) => {
   );
 };
 
-export const fetchDisasterNews = async (query: string = 'natural disaster') => {
+export const fetchDisasterNews = async (query: string = 'natural disaster'): Promise<ApiResponse<NewsResponse>> => {
   return fetchDisasterData<NewsResponse>(
     'news',
     'everything',
@@ -110,7 +124,7 @@ export const fetchDisasterNews = async (query: string = 'natural disaster') => {
   );
 };
 
-export const analyzeDisasterRisk = async (location: string, data: any) => {
+export const analyzeDisasterRisk = async (location: string, data: any): Promise<ApiResponse<GeminiResponse>> => {
   const prompt = `
     Analyze the disaster risk for ${location} based on the following data:
     ${JSON.stringify(data)}

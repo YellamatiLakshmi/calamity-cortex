@@ -8,9 +8,20 @@ const NASA_FLOOD_API_KEY = Deno.env.get('NASA_FLOOD_API_KEY') || '';
 const OPENWEATHERMAP_API_KEY = Deno.env.get('OPENWEATHERMAP_API_KEY') || '';
 const NEWS_API_KEY = Deno.env.get('NEWS_API_KEY') || '';
 
+// Validate API keys
+if (!GEMINI_API_KEY || !NASA_FLOOD_API_KEY || !OPENWEATHERMAP_API_KEY || !NEWS_API_KEY) {
+  console.error('Missing required API keys:', {
+    GEMINI_API_KEY: !!GEMINI_API_KEY,
+    NASA_FLOOD_API_KEY: !!NASA_FLOOD_API_KEY,
+    OPENWEATHERMAP_API_KEY: !!OPENWEATHERMAP_API_KEY,
+    NEWS_API_KEY: !!NEWS_API_KEY,
+  });
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
 };
 
 serve(async (req) => {
@@ -27,6 +38,8 @@ serve(async (req) => {
     let headers = {};
     let method = 'GET';
     let body = null;
+
+    console.log(`Processing request for ${service}/${endpoint}`);
 
     // Route request based on service
     switch (service) {
@@ -94,18 +107,51 @@ serve(async (req) => {
       body,
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error from ${service} API: ${response.status} ${response.statusText}`, errorText);
+      return new Response(
+        JSON.stringify({ 
+          error: `Error from ${service} API: ${response.status} ${response.statusText}`, 
+          details: errorText 
+        }), 
+        {
+          status: response.status,
+          headers: corsHeaders,
+        }
+      );
+    }
+
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error(`Non-JSON response from ${service} API:`, text);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid response format', 
+          details: `Expected JSON but received ${contentType}` 
+        }), 
+        {
+          status: 500,
+          headers: corsHeaders,
+        }
+      );
+    }
+
     const data = await response.json();
+    console.log(`Successful response from ${service} API`);
     
     // Return the data from the external API
     return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: response.status,
+      headers: corsHeaders,
+      status: 200,
     });
   } catch (error) {
     console.error('Error in api-proxy function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     });
   }
 });
