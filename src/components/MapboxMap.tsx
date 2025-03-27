@@ -44,8 +44,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/dark-v11',
         center: [-95.7129, 37.0902], // Center on US
-        zoom: 3,
-        projection: 'mercator'
+        zoom: 3
+        // Removed the projection property that was causing the type error
       });
 
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
