@@ -4,6 +4,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2 } from 'lucide-react';
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // Define disaster event interface
 export interface DisasterEvent {
@@ -23,22 +25,21 @@ interface MapboxMapProps {
   loading?: boolean;
 }
 
-// Use a temporary token for demo purposes only
-// In production, this should be retrieved from environment variables or Supabase secrets
-const MAPBOX_TOKEN = 'pk.eyJ1IjoibG92YWJsZS1kZW1vIiwiYSI6ImNsc3EyYnRiaTBkZzgybG54djN0cWdvczIifQ.DNkEPkh5kdAMLaHlVQJhCw';
-
 const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
   const [mapInitialized, setMapInitialized] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState('');
+  const [tokenSubmitted, setTokenSubmitted] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+  const initializeMap = () => {
+    if (!mapContainer.current || map.current || !mapboxToken) return;
+    setMapError(null);
 
     try {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+      mapboxgl.accessToken = mapboxToken;
       
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
@@ -59,19 +60,71 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
 
       map.current.on('load', () => {
         setMapInitialized(true);
+        toast.success('Map loaded successfully');
       });
 
-      // Cleanup
-      return () => {
-        markers.current.forEach(marker => marker.remove());
-        markers.current = [];
+      map.current.on('error', (e) => {
+        console.error('Map error:', e);
+        setMapError('Error loading map. Please check your Mapbox token and try again.');
         map.current?.remove();
-      };
+        map.current = null;
+        setMapInitialized(false);
+        setTokenSubmitted(false);
+      });
+
     } catch (error) {
       console.error('Error initializing map:', error);
-      toast.error('Failed to initialize map. Please try again later.');
+      setMapError('Failed to initialize map. Please check your Mapbox token and try again.');
+      map.current?.remove();
+      map.current = null;
+      setMapInitialized(false);
+      setTokenSubmitted(false);
+    }
+  };
+
+  // Handle token submission
+  const handleTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mapboxToken.trim()) {
+      toast.error('Please enter a valid Mapbox token');
+      return;
+    }
+    
+    // Clean up previous map instance if exists
+    if (map.current) {
+      markers.current.forEach(marker => marker.remove());
+      markers.current = [];
+      map.current.remove();
+      map.current = null;
+    }
+    
+    setTokenSubmitted(true);
+    localStorage.setItem('mapbox_token', mapboxToken); // Save token for future visits
+    initializeMap();
+  };
+
+  // Load token from localStorage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('mapbox_token');
+    if (savedToken) {
+      setMapboxToken(savedToken);
+      setTokenSubmitted(true);
     }
   }, []);
+
+  // Initialize map when token is submitted or loaded from storage
+  useEffect(() => {
+    if (tokenSubmitted && mapboxToken) {
+      initializeMap();
+    }
+    
+    // Cleanup
+    return () => {
+      markers.current.forEach(marker => marker.remove());
+      markers.current = [];
+      map.current?.remove();
+    };
+  }, [tokenSubmitted, mapboxToken]);
 
   // Add disaster markers when disasters data or map changes
   useEffect(() => {
@@ -177,49 +230,110 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
 
   return (
     <div className="relative w-full h-[70vh] bg-muted/30 rounded-2xl overflow-hidden border shadow-sm">
-      <div ref={mapContainer} className="absolute inset-0" />
-      
-      {/* Loading state */}
-      {loading && (
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10">
-          <div className="flex flex-col items-center">
-            <Loader2 className="animate-spin h-8 w-8 text-primary mb-2" />
-            <span className="text-sm text-foreground">Loading disaster data...</span>
+      {!tokenSubmitted ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-card">
+          <div className="w-full max-w-md space-y-4">
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-medium">Mapbox API Token Required</h3>
+              <p className="text-sm text-muted-foreground">
+                To view the disaster map, please enter your Mapbox public access token.
+                You can get one for free at <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">mapbox.com</a>
+              </p>
+            </div>
+            
+            <form onSubmit={handleTokenSubmit} className="space-y-3">
+              <Input
+                type="text"
+                placeholder="Enter your Mapbox public token (pk.eyJ1...)"
+                value={mapboxToken}
+                onChange={(e) => setMapboxToken(e.target.value)}
+                className="w-full"
+              />
+              <Button type="submit" className="w-full">
+                Load Map
+              </Button>
+            </form>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              Your token will be stored in your browser's local storage and is only used for map display.
+            </p>
           </div>
         </div>
+      ) : (
+        <>
+          <div ref={mapContainer} className="absolute inset-0" />
+          
+          {/* Loading state */}
+          {loading && (
+            <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10">
+              <div className="flex flex-col items-center">
+                <Loader2 className="animate-spin h-8 w-8 text-primary mb-2" />
+                <span className="text-sm text-foreground">Loading disaster data...</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Map error state */}
+          {mapError && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 p-6">
+              <div className="max-w-md bg-card p-6 rounded-lg border shadow-lg space-y-4">
+                <h3 className="text-lg font-medium text-destructive">Map Error</h3>
+                <p className="text-sm">{mapError}</p>
+                <Button onClick={() => setTokenSubmitted(false)} className="w-full">
+                  Try Different Token
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Map legend */}
+          <div className="absolute bottom-4 left-4 p-3 bg-background/80 backdrop-blur-sm rounded-lg shadow-sm border z-10">
+            <div className="text-xs font-medium mb-2">Map Legend</div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#ef4444] mr-1.5"></span>
+                <span className="text-xs">Wildfire</span>
+              </div>
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#3b82f6] mr-1.5"></span>
+                <span className="text-xs">Flood</span>
+              </div>
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#8b5cf6] mr-1.5"></span>
+                <span className="text-xs">Hurricane</span>
+              </div>
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#f59e0b] mr-1.5"></span>
+                <span className="text-xs">Earthquake</span>
+              </div>
+              <div className="flex items-center">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#6b7280] mr-1.5"></span>
+                <span className="text-xs">Other</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Data source info */}
+          <div className="absolute top-4 left-4 p-2 bg-background/80 backdrop-blur-sm rounded-lg text-xs text-muted-foreground border z-10">
+            Map data from Mapbox & OpenStreetMap
+          </div>
+          
+          {/* Token reset button */}
+          <div className="absolute top-4 right-4 p-2 bg-background/80 backdrop-blur-sm rounded-lg text-xs border z-10">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-auto py-1 px-2 text-xs"
+              onClick={() => {
+                localStorage.removeItem('mapbox_token');
+                setTokenSubmitted(false);
+              }}
+            >
+              Change Token
+            </Button>
+          </div>
+        </>
       )}
-      
-      {/* Map legend */}
-      <div className="absolute bottom-4 left-4 p-3 bg-background/80 backdrop-blur-sm rounded-lg shadow-sm border z-10">
-        <div className="text-xs font-medium mb-2">Map Legend</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#ef4444] mr-1.5"></span>
-            <span className="text-xs">Wildfire</span>
-          </div>
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#3b82f6] mr-1.5"></span>
-            <span className="text-xs">Flood</span>
-          </div>
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#8b5cf6] mr-1.5"></span>
-            <span className="text-xs">Hurricane</span>
-          </div>
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#f59e0b] mr-1.5"></span>
-            <span className="text-xs">Earthquake</span>
-          </div>
-          <div className="flex items-center">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#6b7280] mr-1.5"></span>
-            <span className="text-xs">Other</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Data source info */}
-      <div className="absolute top-4 left-4 p-2 bg-background/80 backdrop-blur-sm rounded-lg text-xs text-muted-foreground border z-10">
-        Map data from Mapbox & OpenStreetMap
-      </div>
     </div>
   );
 };
