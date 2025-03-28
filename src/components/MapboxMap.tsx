@@ -1,7 +1,5 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -27,170 +25,193 @@ interface MapboxMapProps {
 
 const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<mapboxgl.Marker[]>([]);
+  const map = useRef<google.maps.Map | null>(null);
+  const markers = useRef<google.maps.Marker[]>([]);
   const [mapInitialized, setMapInitialized] = useState(false);
-  const [mapboxToken, setMapboxToken] = useState('');
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState('');
   const [tokenSubmitted, setTokenSubmitted] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   const initializeMap = () => {
-    if (!mapContainer.current || map.current || !mapboxToken) return;
+    if (!mapContainer.current || map.current || !googleMapsApiKey) return;
     setMapError(null);
 
     try {
-      mapboxgl.accessToken = mapboxToken;
+      // Load Google Maps script dynamically
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&callback=initGoogleMap`;
+      script.async = true;
+      script.defer = true;
       
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-95.7129, 37.0902], // Center on US
-        zoom: 3
-        // Removed the projection property that was causing the type error
-      });
+      // Define the callback function
+      window.initGoogleMap = () => {
+        try {
+          map.current = new google.maps.Map(mapContainer.current!, {
+            center: { lat: 37.0902, lng: -95.7129 }, // Center on US
+            zoom: 4,
+            styles: [
+              { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+              { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+              { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+              {
+                featureType: "administrative.locality",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#d59563" }],
+              },
+              {
+                featureType: "water",
+                elementType: "geometry",
+                stylers: [{ color: "#17263c" }],
+              },
+              {
+                featureType: "water",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#515c6d" }],
+              },
+              {
+                featureType: "water",
+                elementType: "labels.text.stroke",
+                stylers: [{ color: "#17263c" }],
+              },
+            ],
+          });
 
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      map.current.addControl(new mapboxgl.FullscreenControl());
-      map.current.addControl(new mapboxgl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true
-        },
-        trackUserLocation: true
-      }));
-
-      map.current.on('load', () => {
-        setMapInitialized(true);
-        toast.success('Map loaded successfully');
-      });
-
-      map.current.on('error', (e) => {
-        console.error('Map error:', e);
-        setMapError('Error loading map. Please check your Mapbox token and try again.');
-        map.current?.remove();
-        map.current = null;
+          setMapInitialized(true);
+          toast.success('Map loaded successfully');
+          
+          // Add disaster markers after map is initialized
+          addDisasterMarkers();
+        } catch (error) {
+          console.error('Error initializing Google Map:', error);
+          setMapError('Failed to initialize map. Please check your API key and try again.');
+          setMapInitialized(false);
+          setTokenSubmitted(false);
+        }
+      };
+      
+      // Handle script loading error
+      script.onerror = () => {
+        console.error('Error loading Google Maps script');
+        setMapError('Failed to load Google Maps. Please check your API key and try again.');
         setMapInitialized(false);
         setTokenSubmitted(false);
-      });
+      };
+      
+      document.head.appendChild(script);
 
     } catch (error) {
       console.error('Error initializing map:', error);
-      setMapError('Failed to initialize map. Please check your Mapbox token and try again.');
-      map.current?.remove();
+      setMapError('Failed to initialize map. Please check your Google Maps API key and try again.');
       map.current = null;
       setMapInitialized(false);
       setTokenSubmitted(false);
     }
   };
 
-  // Handle token submission
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mapboxToken.trim()) {
-      toast.error('Please enter a valid Mapbox token');
-      return;
-    }
-    
-    // Clean up previous map instance if exists
-    if (map.current) {
-      markers.current.forEach(marker => marker.remove());
-      markers.current = [];
-      map.current.remove();
-      map.current = null;
-    }
-    
-    setTokenSubmitted(true);
-    localStorage.setItem('mapbox_token', mapboxToken); // Save token for future visits
-    initializeMap();
-  };
-
-  // Load token from localStorage on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem('mapbox_token');
-    if (savedToken) {
-      setMapboxToken(savedToken);
-      setTokenSubmitted(true);
-    }
-  }, []);
-
-  // Initialize map when token is submitted or loaded from storage
-  useEffect(() => {
-    if (tokenSubmitted && mapboxToken) {
-      initializeMap();
-    }
-    
-    // Cleanup
-    return () => {
-      markers.current.forEach(marker => marker.remove());
-      markers.current = [];
-      map.current?.remove();
-    };
-  }, [tokenSubmitted, mapboxToken]);
-
-  // Add disaster markers when disasters data or map changes
-  useEffect(() => {
+  // Add disaster markers
+  const addDisasterMarkers = () => {
     if (!map.current || !mapInitialized || loading) return;
 
     // Remove existing markers
-    markers.current.forEach(marker => marker.remove());
+    markers.current.forEach(marker => marker.setMap(null));
     markers.current = [];
 
     // Add new markers for each disaster
     disasters.forEach(disaster => {
       try {
-        // Create marker element
-        const markerEl = document.createElement('div');
-        markerEl.className = `disaster-marker ${disaster.type} ${disaster.severity}`;
+        // Create marker
+        const markerSize = getMarkerSize(disaster.severity);
+        const markerColor = getMarkerColor(disaster.type);
         
-        // Style based on disaster type and severity
-        const size = getMarkerSize(disaster.severity);
-        const color = getMarkerColor(disaster.type);
+        const marker = new google.maps.Marker({
+          position: { lat: disaster.coordinates.lat, lng: disaster.coordinates.lon },
+          map: map.current,
+          title: disaster.location,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: markerColor,
+            fillOpacity: 0.8,
+            strokeWeight: 2,
+            strokeColor: '#ffffff',
+            scale: markerSize / 5, // Scale to appropriate size
+          },
+          animation: google.maps.Animation.DROP,
+        });
         
-        markerEl.style.width = `${size}px`;
-        markerEl.style.height = `${size}px`;
-        markerEl.style.backgroundColor = color;
-        markerEl.style.borderRadius = '50%';
-        markerEl.style.border = '2px solid rgba(255, 255, 255, 0.5)';
-        markerEl.style.boxShadow = `0 0 ${size}px ${color}40`;
-        
-        // Add animation
-        markerEl.style.animation = 'pulse 2s infinite';
-        
-        // Create popup
-        const popup = new mapboxgl.Popup({ offset: 25 })
-          .setHTML(`
+        // Create info window
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
             <div style="font-family: system-ui, sans-serif; padding: 4px;">
               <div style="font-weight: 600; margin-bottom: 4px;">${disaster.location}</div>
               <div style="font-size: 12px; opacity: 0.8;">${capitalizeFirstLetter(disaster.type)}</div>
               <div style="font-size: 12px; opacity: 0.8;">Severity: ${capitalizeFirstLetter(disaster.severity)}</div>
               <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">${formatDate(disaster.timestamp)}</div>
             </div>
-          `);
+          `
+        });
         
-        // Create and add marker
-        const marker = new mapboxgl.Marker(markerEl)
-          .setLngLat([disaster.coordinates.lon, disaster.coordinates.lat])
-          .setPopup(popup)
-          .addTo(map.current!);
+        // Add click listener to show info window
+        marker.addListener('click', () => {
+          infoWindow.open(map.current!, marker);
+        });
         
         markers.current.push(marker);
       } catch (error) {
         console.error('Error adding marker:', error);
       }
     });
-    
-    // Inject CSS for marker animation
-    if (!document.getElementById('marker-animation')) {
-      const style = document.createElement('style');
-      style.id = 'marker-animation';
-      style.textContent = `
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-      `;
-      document.head.appendChild(style);
+  };
+
+  // Handle token submission
+  const handleTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleMapsApiKey.trim()) {
+      toast.error('Please enter a valid Google Maps API key');
+      return;
     }
+    
+    // Clean up previous map instance if exists
+    if (map.current) {
+      markers.current.forEach(marker => marker.setMap(null));
+      markers.current = [];
+      map.current = null;
+    }
+    
+    setTokenSubmitted(true);
+    localStorage.setItem('google_maps_api_key', googleMapsApiKey); // Save token for future visits
+    initializeMap();
+  };
+
+  // Load token from localStorage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('google_maps_api_key');
+    if (savedToken) {
+      setGoogleMapsApiKey(savedToken);
+      setTokenSubmitted(true);
+    }
+  }, []);
+
+  // Initialize map when token is submitted or loaded from storage
+  useEffect(() => {
+    if (tokenSubmitted && googleMapsApiKey) {
+      // Clean up any existing Google Maps script tags
+      const existingScripts = document.querySelectorAll('script[src*="maps.googleapis.com/maps/api/js"]');
+      existingScripts.forEach(script => script.remove());
+      
+      initializeMap();
+    }
+    
+    // Cleanup
+    return () => {
+      markers.current.forEach(marker => marker.setMap(null));
+      markers.current = [];
+      delete window.initGoogleMap;
+    };
+  }, [tokenSubmitted, googleMapsApiKey]);
+
+  // Add disaster markers when disasters data or map changes
+  useEffect(() => {
+    addDisasterMarkers();
   }, [disasters, mapInitialized, loading]);
 
   // Helper functions
@@ -234,19 +255,19 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-card">
           <div className="w-full max-w-md space-y-4">
             <div className="text-center space-y-2">
-              <h3 className="text-lg font-medium">Mapbox API Token Required</h3>
+              <h3 className="text-lg font-medium">Google Maps API Key Required</h3>
               <p className="text-sm text-muted-foreground">
-                To view the disaster map, please enter your Mapbox public access token.
-                You can get one for free at <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">mapbox.com</a>
+                To view the disaster map, please enter your Google Maps API key.
+                You can get one from the <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a>
               </p>
             </div>
             
             <form onSubmit={handleTokenSubmit} className="space-y-3">
               <Input
                 type="text"
-                placeholder="Enter your Mapbox public token (pk.eyJ1...)"
-                value={mapboxToken}
-                onChange={(e) => setMapboxToken(e.target.value)}
+                placeholder="Enter your Google Maps API key (AIza...)"
+                value={googleMapsApiKey}
+                onChange={(e) => setGoogleMapsApiKey(e.target.value)}
                 className="w-full"
               />
               <Button type="submit" className="w-full">
@@ -255,7 +276,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
             </form>
             
             <p className="text-xs text-muted-foreground text-center">
-              Your token will be stored in your browser's local storage and is only used for map display.
+              Your API key will be stored in your browser's local storage and is only used for map display.
             </p>
           </div>
         </div>
@@ -280,7 +301,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
                 <h3 className="text-lg font-medium text-destructive">Map Error</h3>
                 <p className="text-sm">{mapError}</p>
                 <Button onClick={() => setTokenSubmitted(false)} className="w-full">
-                  Try Different Token
+                  Try Different API Key
                 </Button>
               </div>
             </div>
@@ -315,7 +336,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
           
           {/* Data source info */}
           <div className="absolute top-4 left-4 p-2 bg-background/80 backdrop-blur-sm rounded-lg text-xs text-muted-foreground border z-10">
-            Map data from Mapbox & OpenStreetMap
+            Map data from Google Maps
           </div>
           
           {/* Token reset button */}
@@ -325,11 +346,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
               size="sm" 
               className="h-auto py-1 px-2 text-xs"
               onClick={() => {
-                localStorage.removeItem('mapbox_token');
+                localStorage.removeItem('google_maps_api_key');
                 setTokenSubmitted(false);
               }}
             >
-              Change Token
+              Change API Key
             </Button>
           </div>
         </>
