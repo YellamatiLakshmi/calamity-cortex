@@ -31,7 +31,7 @@ serve(async (req) => {
   }
 
   try {
-    const { service, endpoint, params } = await req.json();
+    const { service, endpoint, params, customApiKey } = await req.json();
     
     let apiUrl = '';
     let apiKey = '';
@@ -45,7 +45,8 @@ serve(async (req) => {
     switch (service) {
       case 'gemini':
         apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-        apiKey = GEMINI_API_KEY;
+        // Use custom API key if provided, otherwise use environment variable
+        apiKey = customApiKey || GEMINI_API_KEY;
         method = 'POST';
         body = JSON.stringify(params);
         headers = {
@@ -70,6 +71,11 @@ serve(async (req) => {
         
       default:
         throw new Error('Unknown service requested');
+    }
+
+    // Log if using custom API key
+    if (service === 'gemini' && customApiKey) {
+      console.log('Using custom Gemini API key provided by user');
     }
 
     // Add API key to URL or headers as needed

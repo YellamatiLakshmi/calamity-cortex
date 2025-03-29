@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, AlertTriangle, Clock, Map, Radio } from 'lucide-react';
+import { Send, User, Bot, AlertTriangle, Clock, Map, Radio, Key } from 'lucide-react';
 import { fetchDisasterData } from '@/services/disasterDataService';
 import { toast } from "sonner";
 
@@ -35,7 +35,16 @@ const ChatInterface = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [apiKey, setApiKey] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Load API key from localStorage if available
+    const storedApiKey = localStorage.getItem('gemini_api_key');
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +74,12 @@ const ChatInterface = () => {
     setIsTyping(true);
     
     try {
+      // Check for API key
+      const currentApiKey = localStorage.getItem('gemini_api_key');
+      if (!currentApiKey) {
+        throw new Error('Gemini API key not found. Please set your API key first.');
+      }
+      
       // Prepare context for the AI
       const conversationContext = messages
         .slice(-5)
@@ -99,7 +114,8 @@ const ChatInterface = () => {
             parts: [{
               text: prompt
             }]
-          }]
+          }],
+          apiKey: currentApiKey // Pass the API key from localStorage
         }
       );
       
@@ -121,7 +137,13 @@ const ChatInterface = () => {
       }
     } catch (error) {
       console.error('Error getting AI response:', error);
-      toast.error('Failed to get AI response. Please try again.');
+      
+      let errorMessage = 'Failed to get AI response. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
       
       // Add fallback bot message
       const fallbackMessage: MessageType = {

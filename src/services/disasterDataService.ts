@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 
 // Generic API response interface
@@ -156,6 +155,15 @@ export const fetchDisasterData = async <T>(
   try {
     console.log(`Fetching ${service} data for endpoint ${endpoint}`, params);
     
+    // Extract custom API key if provided
+    const customApiKey = params.apiKey;
+    const requestParams = { ...params };
+    
+    // Remove apiKey from params to avoid sending it to the server directly
+    if (customApiKey) {
+      delete requestParams.apiKey;
+    }
+    
     const response = await fetch('/api/api-proxy', {
       method: 'POST',
       headers: {
@@ -164,7 +172,8 @@ export const fetchDisasterData = async <T>(
       body: JSON.stringify({
         service,
         endpoint,
-        params,
+        params: requestParams,
+        customApiKey: service === 'gemini' ? customApiKey : undefined, // Only pass for gemini service
       }),
     });
 
@@ -253,6 +262,9 @@ export const fetchDisasterNews = async (query: string = 'natural disaster'): Pro
 };
 
 export const analyzeDisasterRisk = async (location: string, data: any): Promise<ApiResponse<GeminiResponse>> => {
+  // Get the custom API key from localStorage if available
+  const apiKey = localStorage.getItem('gemini_api_key');
+  
   const prompt = `
     Analyze the disaster risk for ${location} based on the following data:
     ${JSON.stringify(data)}
@@ -280,7 +292,8 @@ export const analyzeDisasterRisk = async (location: string, data: any): Promise<
         parts: [{
           text: prompt
         }]
-      }]
+      }],
+      apiKey: apiKey || undefined
     }
   );
 };

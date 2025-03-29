@@ -1,12 +1,29 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import ChatInterface from '@/components/ChatInterface';
-import { MessageSquare, AlertTriangle, LifeBuoy, Map, ArrowRight } from 'lucide-react';
+import { MessageSquare, AlertTriangle, LifeBuoy, Map, ArrowRight, Key } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const ChatPage = () => {
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+
+  const handleApiKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apiKey.trim()) {
+      toast.error("Please enter a valid API key");
+      return;
+    }
+    
+    // Store API key in localStorage
+    localStorage.setItem('gemini_api_key', apiKey);
+    toast.success("API key updated successfully!");
+    setShowApiKeyForm(false);
+  };
+
   return (
     <div className="min-h-screen">
       <Navigation />
@@ -15,14 +32,59 @@ const ChatPage = () => {
         <div className="max-w-7xl mx-auto">
           {/* Page Header */}
           <div className="mb-8 animate-fade-in">
-            <div className="flex items-center mb-2">
-              <MessageSquare className="h-5 w-5 mr-2 text-disaster-red" />
-              <h1 className="text-2xl font-bold">Emergency AI Assistant</h1>
+            <div className="flex items-center mb-2 justify-between">
+              <div className="flex items-center">
+                <MessageSquare className="h-5 w-5 mr-2 text-disaster-red" />
+                <h1 className="text-2xl font-bold">Emergency AI Assistant</h1>
+              </div>
+              <button 
+                onClick={() => setShowApiKeyForm(!showApiKeyForm)}
+                className="flex items-center text-sm px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+              >
+                <Key className="h-3.5 w-3.5 mr-1.5" />
+                {showApiKeyForm ? 'Hide API Form' : 'Update API Key'}
+              </button>
             </div>
             <p className="text-muted-foreground">
               Get immediate disaster information and emergency guidance from our AI-powered chatbot
             </p>
           </div>
+          
+          {/* API Key Form */}
+          {showApiKeyForm && (
+            <div className="mb-6 p-4 border rounded-lg bg-muted/20 animate-fade-in">
+              <h3 className="text-sm font-medium mb-2 flex items-center">
+                <Key className="h-4 w-4 mr-1.5" />
+                Update Gemini API Key
+              </h3>
+              <form onSubmit={handleApiKeySubmit} className="flex gap-2">
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter your Gemini API key"
+                  className="flex-1 text-sm px-3 py-2 rounded-md border bg-background"
+                />
+                <button 
+                  type="submit"
+                  className="px-3 py-2 bg-primary text-primary-foreground text-sm rounded-md"
+                >
+                  Save Key
+                </button>
+              </form>
+              <p className="text-xs text-muted-foreground mt-2">
+                Your API key will be stored locally on your device and used for chatbot interactions.
+                <a 
+                  href="https://makersuite.google.com/app/apikey" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary ml-1 hover:underline"
+                >
+                  Get a Gemini API key
+                </a>
+              </p>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Chat Interface */}
