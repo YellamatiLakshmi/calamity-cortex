@@ -114,8 +114,9 @@ declare namespace google {
   }
 }
 
-declare global {
-  interface Window {
-    initGoogleMap: () => void;
-  }
+// This declaration merges with the existing Window interface
+// to add the initGoogleMap property
+interface Window {
+  initGoogleMap: () => void;
 }
+

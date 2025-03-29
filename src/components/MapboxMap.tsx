@@ -48,7 +48,9 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
       // Define the callback function
       window.initGoogleMap = () => {
         try {
-          map.current = new google.maps.Map(mapContainer.current!, {
+          if (!mapContainer.current) return;
+          
+          map.current = new google.maps.Map(mapContainer.current, {
             center: { lat: 37.0902, lng: -95.7129 }, // Center on US
             zoom: 4,
             styles: [
@@ -207,7 +209,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({ disasters, loading = false }) => 
     return () => {
       markers.current.forEach(marker => marker.setMap(null));
       markers.current = [];
-      delete window.initGoogleMap;
+      // Explicitly check if the property exists before deleting it
+      if ('initGoogleMap' in window) {
+        // Use type assertion to tell TypeScript this property exists
+        delete (window as any).initGoogleMap;
+      }
     };
   }, [tokenSubmitted, googleMapsApiKey]);
 
