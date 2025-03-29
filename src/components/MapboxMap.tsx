@@ -1,8 +1,11 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+// Explicitly import the type definitions - this helps TypeScript find them
+import '../types/google-maps.d.ts';
 
 // Define disaster event interface
 export interface DisasterEvent {

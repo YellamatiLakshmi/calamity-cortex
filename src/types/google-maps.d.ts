@@ -119,5 +119,3 @@ declare global {
     initGoogleMap: () => void;
   }
 }
-
-export {};
